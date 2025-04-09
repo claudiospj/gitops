@@ -16,7 +16,7 @@ spec:
         replicaCount: 1
         
         image:
-          repository: ghcr.io/claudiospj/lobbyservice
+          repository: ghcr.io/claudiospj/lobbyservice:
           pullPolicy: IfNotPresent   
         imagePullSecrets:
           - name: github-registry-bingaodobrasil
