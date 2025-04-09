@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - bm-account
+  - bm-api
+  # - bm-backoffice  
+  - bm-chat  
+  - bm-configuration  
+  - bm-eventstore
+  - bm-groups  
+  - bm-identity
+  - bm-inventory
+  - bm-liveops
+  - bm-match-making
+  - bm-operator-api
+  - bm-router
+
+  

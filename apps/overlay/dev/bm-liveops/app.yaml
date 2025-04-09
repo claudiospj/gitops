@@ -1,0 +1,123 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: bm-liveops
+  namespace: argocd
+spec:
+  destination:
+    namespace: bingao-dev
+    server: 'https://kubernetes.default.svc'
+  source:
+    repoURL: 'ghcr.io/claudiospj'
+    targetRevision: 0.0.3
+    chart: basic-app
+    helm:
+      values: |
+        replicaCount: 1
+        
+        image:
+          repository: ghcr.io/pipabingomaker/matchmaking:0.1.36-find-room-refactor.25
+          pullPolicy: IfNotPresent   
+        imagePullSecrets:
+          - name: github-registry-pipabingomaker
+
+        # command: ["sleep","infinity"]          
+      
+        externalSecrets:
+          enabled: false
+          refreshInterval: "1m"
+          secretStoreRef: "secretstore-gcp"  
+
+        env:
+          - name: "ConfigurationEndpoint" 
+            value: "https://config-dev.bingaodobrasil.com.br"
+          - name: BT.LiveOps:ConfigurationEndpoint
+            value: http://config-dev.pipastudios.com         
+          - name: "OTEL_EXPORTER_OTLP_ENDPOINT"
+            value: "localhost"
+          - name: "ASPNETCORE_ENVIRONMENT"  
+            value: "Development"
+          - name: "ASPNETCORE_URLS"
+            value: "http://+:80"
+          - name: "DOTNET_SHUTDOWNTIMEOUTSECONDS" 
+            value: "120"     
+
+        envFrom:
+         secrets:
+         - name: bm-liveops
+           optional: true
+
+        keda:
+          enabled: false
+          pollingInterval: 30
+          minReplicaCount: 1
+          maxReplicaCount: 1
+          cooldownPeriod: 300
+          triggers:
+            - type: cpu
+              metricType: Utilization # Allowed types are 'Utilization' or 'AverageValue'
+              metadata:
+                value: "80"     
+            - type: memory
+              metricType: Utilization # Allowed types are 'Utilization' or 'AverageValue'
+              metadata:
+                value: "80"   
+          #   # Recomendado para ambiente produtivo, reduzir a carga fora do horário comercial ou manter uma carga fixa      
+          #   - type: cron
+          #     metadata:
+          #       timezone: "America/Sao_Paulo"
+                      ##   ┌────────── minuto (0 - 59)
+                      ## │ ┌──────── hora (0 - 23)
+                      ## │ │ ┌────── dia do mês (* = qualquer dia)
+                      ## │ │ │ ┌──── mês (* = qualquer mês)
+                      ## │ │ │ │ ┌── dia da semana (0 = domingo, 6 = sábado)
+                      ## │ │ │ │ │
+                      ## │ │ │ │ │
+          #       start: "0 5 * * 1-5"
+          #       end: "0 20 * * 1-5"
+          #       desiredReplicas: "1"             
+
+        containerPort: 80
+        resources:
+          limits:
+            cpu: 256m
+            memory: 256Mi
+          # requests:
+          #   cpu: 256m
+          #   memory: 256Mi            
+
+        nodeSelector:
+          kubernetes.io/os: linux
+
+        tolerations:
+        - key: apps-pool
+          value: "true"
+          operator: Equal
+          effect: NoSchedule
+
+        ingress:
+          enabled: true
+          className: nginx
+          annotations:
+            external-dns.alpha.kubernetes.io/hostname: liveops-dev.bingaodobrasil.com.br
+          hosts:
+          - name: liveops-dev.bingaodobrasil.com.br
+            pathType: Prefix
+            path: /
+          tls:
+            enabled: true
+            secretName: null 
+  project: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 2
+      backoff:
+        duration: 5s
+        maxDuration: 3m0s
+        factor: 2
+    syncOptions:
+    - Replace=true
+    - CreateNamespace=true
